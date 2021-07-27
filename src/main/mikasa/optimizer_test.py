@@ -95,12 +95,12 @@ def solve_degree(capacity_vector):
             return degree_vector
 
 
-def solve_network(capacity_vector): # TODO: Fix
+def solve_network(capacity_vector): # TODO: Fix, creates loops
 
     n = len(capacity_vector)
     solution = dict()
 
-    normalized_capacity = minmaxnorm(capacity_vector)
+    normalized_capacity = minmaxnorm(capacity_vector, u=0.9) # created normalized capacity vector that never equals or exceeds
 
     # get optimal degree vector for network
     degree_vector = solve_degree(capacity_vector)
@@ -116,7 +116,7 @@ def solve_network(capacity_vector): # TODO: Fix
         
         print(selection_vector)
         parent = np.argmax(selection_vector) # find first node to start with
-        print("Selecting parent", parent)
+        print("---------------Selecting parent", parent)
 
         selection_vector[parent] = 0 # ensures parent cant select itself to build edge
 
@@ -126,6 +126,7 @@ def solve_network(capacity_vector): # TODO: Fix
             print("Selecting child", child)
 
             solution[parent].append(child) # make connection
+            solution[child].append(parent)
             degree_vector[parent] -= 1
             degree_vector[child] -= 1
             selection_vector[child] = 0 # parent cant make duplicate edges
