@@ -8,7 +8,7 @@ import java.util.ArrayList;
  * 1. active public address
  * 2. network load
  * 3. network devices
- * 4. encrypting and decrypting hostnames to and from hexidecimal format
+ * 4. encoding and decoding hostnames to and from hexidecimal format
  *
  */
 
@@ -32,7 +32,7 @@ public class hostnameProvider {
      */
 
     public static String addrToHex(InetAddress inetaddr){
-        String[] nums = inetaddr.getHostName().split("\\.");
+        String[] nums = inetaddr.getHostAddress().split("\\.");
         StringBuilder val = new StringBuilder();
         for (String num : nums) {
             int temp = Integer.parseInt(num);
@@ -44,9 +44,9 @@ public class hostnameProvider {
     }
 
     /**
-     * @param hexaddr String to be decrypted
+     * @param hexaddr String to be decoded
      * @return InetAddress object of hex address
-     * @throws UnknownHostException
+     * @throws UnknownHostException if the deciphered hex string isn't a valid address
      */
 
     public static InetAddress hexToAddr(String hexaddr) throws UnknownHostException{
@@ -65,10 +65,14 @@ public class hostnameProvider {
      */
     public static void quickTest() throws IOException{
         InetAddress ip = getPublicAddress();
-        System.out.println("public IP: " + ip.getHostName());
+        System.out.println("public IP: " + ip.getHostAddress());
         String hex = addrToHex(ip);
-        System.out.println("encrypted: "+hex);
+        System.out.println("encoded: "+hex);
         InetAddress back = hexToAddr(hex);
-        System.out.println("decrypted: "+back.getHostName());
+        System.out.println("decoded: "+back.getHostAddress());
+    }
+
+    public static void main(String[] args) throws IOException{
+        quickTest();
     }
 }
