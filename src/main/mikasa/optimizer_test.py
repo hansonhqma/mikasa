@@ -1,31 +1,56 @@
 import numpy as np
+import math
 import time
 
 ZERO = 0.000001
+LEARNING_RATE = 1
 
+def rnd(x): # round func without float inaccuracy
+    if x%1 > 0.5:
+        return math.ceil(x)
+    else:
+        return math.floor(x)
+
+def discretize_vector(degree_vector):
+    print("discretizing")
+    diff_vector = [round(x)-x for x in degree_vector]
+    print(diff_vector)
+    for i in range(len(degree_vector)):
+        if diff_vector[i]==0:
+            continue
+        for j in range(i+1, len(degree_vector)):
+            if diff_vector[j]==0:
+                continue
+            # both non-zero values
+            value = diff_vector[i]
+            degree_vector[i] += value
+            degree_vector[j] -= value # move responsibility
+            diff_vector[j] += value
+            print(degree_vector)
+            break
+    return degree_vector
 
 def sse(degree_vector, capacity_vector):
+    capacity_vector = minmaxnorm(capacity_vector)
     n = len(degree_vector)
-    return sum([((degree_vector[i]-degree_vector[i-1])/degree_vector[-1]-(capacity_vector[i]-capacity_vector[i-1]))**2 for i in range(1,n)])/(n-1)
+    degree_max = max(degree_vector)
+    return sum([((degree_vector[i]-degree_vector[i-1])/degree_max-(capacity_vector[i]-capacity_vector[i-1]))**2 for i in range(1,n)])/(n-1)
 
 def descent_vector(degree_vector, capacity_vector):
     n=len(degree_vector)
+    degree_max = max(degree_vector)
+
+    # basically does calculus here
 
     descent_vector = []
-    descent_vector.append(-(2*(capacity_vector[1] - capacity_vector[0] + (degree_vector[0] - degree_vector[1])/degree_vector[-1]))/(degree_vector[-1]*(n - 1))) # add first term, which is always constant
+    descent_vector.append(-(2*(capacity_vector[1] - capacity_vector[0] + (degree_vector[0] - degree_vector[1])/degree_max))/(degree_max*(n - 1))) # add first term, which is always constant
 
     for i in range(1, n-1): # all terms inside
-        term = ((2*(capacity_vector[i] - capacity_vector[i-1] + (degree_vector[i-1] - degree_vector[i])/degree_vector[-1]))/degree_vector[-1] - (2*(capacity_vector[i+1] - capacity_vector[i] + (degree_vector[i] - degree_vector[i+1])/degree_vector[-1]))/degree_vector[-1])/(n - 1)
+        term = ((2*(capacity_vector[i] - capacity_vector[i-1] + (degree_vector[i-1] - degree_vector[i])/degree_max))/degree_max - (2*(capacity_vector[i+1] - capacity_vector[i] + (degree_vector[i] - degree_vector[i+1])/degree_max))/degree_max)/(n - 1)
         descent_vector.append(term)
 
     # add last term
-    final_term = 0
-    for i in range(1, n-1):
-        final_term += (2*(degree_vector[i-1] - degree_vector[i])*(capacity_vector[i] - capacity_vector[i-1] + (degree_vector[i-1] - degree_vector[i])/degree_vector[-1]))/(degree_vector[-1]**2*(n - 1))
-
-    final_term += (2*((degree_vector[-2] - degree_vector[-1])/degree_vector[-1]**2 + 1/degree_vector[-1])*(capacity_vector[-1] - capacity_vector[-2] + (degree_vector[-2] - degree_vector[-1])/degree_vector[-1]))/(n - 1)
-
-    descent_vector.append(final_term)
+    descent_vector.append((2*(capacity_vector[-1] - capacity_vector[-2] + (degree_vector[-2] - degree_vector[-1])/degree_max))/(degree_max*(n - 1)))
 
     for i in range(len(descent_vector)): # get rid of floating point inaccuracy
         if abs(descent_vector[i])<ZERO:
@@ -41,7 +66,7 @@ def minmaxnorm(vec, l=0, u=1):
     return ret
 
 # assumes capacity_vector is already sorted
-def solve_degree(capacity_vector):
+def solve_degree(capacity_vector, slowmode=False):
 
     n=len(capacity_vector) # get number of nodes
     capacity_vector = minmaxnorm(capacity_vector)
@@ -52,8 +77,13 @@ def solve_degree(capacity_vector):
     degree_vector.extend([2]*(n-2)) # init degree vector as even graph
 
     error_previous = sse(degree_vector, capacity_vector)
+    print(degree_vector, "error:",error_previous)
+    degree_previous = [x for x in degree_vector]
 
     while True: # train
+        
+        if slowmode:
+            time.sleep(0.25)
         
         # calculate descent vector
         gradient = descent_vector(degree_vector, capacity_vector)
@@ -64,38 +94,42 @@ def solve_degree(capacity_vector):
                 if gradient[i]<0: # inconsistent
                     break
                 if i==n-1: # reached end of gradient vector with no flagged values
-                    return degree_vector
+                    return discretize_vector(degree_vector)
         elif gradient[0]<0:
             for i in range(1,n):
                 if gradient[i]>0: # inconsistent
                     break
                 if i==n-1: # reached end of gradient vector with no flagged values
-                    return degree_vector
+                    return discretize_vector(degree_vector)
         else:
             for i in range(1,n):
                 if gradient[i]!=0: # inconsistent
                     break
                 if i==n-1: # reached end of gradient vector with no flagged values
-                    return degree_vector
+                    return discretize_vector(degree_vector)
+        print("potential change")
 
-        # apply adjusted delta to degree vector
+        # find largest deltas in gradient vector
         argmax = np.argmax(gradient)
         argmin = np.argmin(gradient)
         
         if degree_vector[argmin]==1 or degree_vector[argmax]==n-1: # already at extreme solution
-            return degree_vector
+            return discretize_vector(degree_vector)
 
-        degree_vector[argmax] += 1
-        degree_vector[argmin] -= 1 # this ensures change to sum of degree vector is 0, still valid graph
+        degree_vector[argmax] += 0.0625
+        degree_vector[argmin] -= 0.0625 # this ensures change to sum of degree vector is 0, still valid graph
 
         error = sse(degree_vector, capacity_vector)
-        print("Iteration error:", error)
+        print(degree_vector, "error:",error)
 
         if error>=error_previous: # moving backwards, or not moving anymore
-            return degree_vector
+            return discretize_vector(degree_previous)
+
+        error_previous = error
+        degree_previous = [x for x in degree_vector]
 
 
-def solve_network(capacity_vector): # TODO: Fix, creates loops
+def solve_network(capacity_vector):
 
     n = len(capacity_vector)
     solution = dict()
@@ -109,27 +143,7 @@ def solve_network(capacity_vector): # TODO: Fix, creates loops
     for i in range(n):
         solution[i] = [] # initialize graph with empty edges
 
-    while degree_vector!=[0]*n: # while there are still edges we can assign
-
-        # build a vector to rank nodes
-        selection_vector = [degree_vector[i]+normalized_capacity[i] for i in range(n)]
-        
-        print(selection_vector)
-        parent = np.argmax(selection_vector) # find first node to start with
-        print("---------------Selecting parent", parent)
-
-        selection_vector[parent] = 0 # ensures parent cant select itself to build edge
-
-        while degree_vector[parent]!=0: # while still has edges to give
-            child = np.argmax(selection_vector) # find child with highest rank
-            print(selection_vector)
-            print("Selecting child", child)
-
-            solution[parent].append(child) # make connection
-            solution[child].append(parent)
-            degree_vector[parent] -= 1
-            degree_vector[child] -= 1
-            selection_vector[child] = 0 # parent cant make duplicate edges
+    # creates tree based on degree vector
 
     return solution
 
@@ -142,6 +156,3 @@ def solve_network(capacity_vector): # TODO: Fix, creates loops
 
 
 
-
-
-    
