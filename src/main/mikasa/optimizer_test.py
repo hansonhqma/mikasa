@@ -3,7 +3,6 @@ import math
 import time
 
 ZERO = 0.000001
-LEARNING_RATE = 1
 
 def rnd(x): # round func without float inaccuracy
     if x%1 > 0.5:
