@@ -1,0 +1,17 @@
+peudocode:
+
+degree_vector # vector of individual node degrees
+eligible # vector of nodes that are still in the graph. True or False at indexes
+
+while degree_vector is not zero vector:
+	parent is the node with the highest degree
+	while degree of parent is not zero:
+		if the parent is in the graph:
+			select child not yet in graph
+			change status of child
+		else
+			select child in graph
+			change status of parent
+		make connection in graph
+		subtract 1 from both parent and child degree
+		
